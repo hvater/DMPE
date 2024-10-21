@@ -58,10 +58,7 @@ def excite_with_GOATS(
         actions: The actions applied to the system
     """
 
-    obs, env_state = env.reset()
-    obs = obs.astype(np.float32)[0]
-    if isinstance(env_state, np.ndarray):
-        env_state = env_state.astype(np.float32)[0]
+    obs, env_state = env.reset(env.env_properties)
 
     opt_algorithm = MixedVariableGA(
         pop_size=population_size,
@@ -193,10 +190,7 @@ def excite_with_sGOATS(
         mating=MixedVariableMating(eliminate_duplicates=MixedVariableDuplicateElimination()),
     )
 
-    obs, env_state = env.reset()
-    obs = obs.astype(np.float32)[0]
-    if isinstance(env_state, np.ndarray):
-        env_state = env_state.astype(np.float32)[0]
+    obs, env_state = env.reset(env.env_properties)
 
     amplitude_groups = generate_amplitude_groups(
         n_amplitudes=n_amplitudes, n_amplitude_groups=n_amplitude_groups, rng=rng
@@ -281,10 +275,7 @@ def excite_with_iGOATS(
     """System excitation using the iGOATs algorithm from [Smits2024]."""
 
     assert application_horizon <= prediction_horizon
-    obs, env_state = env.reset()
-    obs = obs.astype(np.float32)[0]
-    if isinstance(env_state, np.ndarray):
-        env_state = env_state.astype(np.float32)[0]
+    obs, env_state = env.reset(env.env_properties)
 
     all_actions = []
     all_observations = []

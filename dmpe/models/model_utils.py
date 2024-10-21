@@ -56,13 +56,10 @@ def simulate_ahead_with_env(
             already given through the initial observation
     """
 
-    action_denormalizer = jnp.array(tree_flatten(env.env_properties.action_constraints)[0], dtype=jnp.float32)
-
     def body_fun(carry, action):
         obs, state = carry
 
-        state = env._ode_solver_step(state, action * action_denormalizer, env.env_properties.static_params)
-        obs = env.generate_observation(state, env.env_properties.physical_constraints)
+        obs, state = env.step(state, action, env.env_properties)
         return (obs, state), obs
 
     (_, last_state), observations = jax.lax.scan(body_fun, (init_obs, init_state), actions)
@@ -143,6 +140,37 @@ class ModelWrapperMassSpringDamper(eqx.Module):
             PRNGKey=None,
             optional=None,
         )
+        observations, _ = simulate_ahead_with_env(self.env, init_obs, init_state, actions)
+        return observations
+
+
+class ModelEnvWrapperPMSM(eqx.Module):
+    env: excenvs.CoreEnvironment
+
+    def __call__(self, init_obs, actions, tau):
+
+        env_properties = self.env.env_properties
+        physical_constraints = self.env.env_properties.physical_constraints
+
+        i_d = init_obs[0] * (physical_constraints.i_d * 0.5) - (physical_constraints.i_d * 0.5)
+        i_q = init_obs[1] * physical_constraints.i_q
+        torque = jnp.array([self.env.currents_to_torque_saturated(i_d=i_d, i_q=i_q, env_properties=env_properties)])[0]
+
+        init_state = self.env.State(
+            physical_state=self.env.PhysicalState(
+                i_d=i_d,
+                i_q=i_q,
+                torque=torque,
+                u_d_buffer=0.0,
+                u_q_buffer=0.0,
+                omega_el=2 * jnp.pi * 3 * 4700 / 60,
+                epsilon=0.0,
+            ),
+            PRNGKey=None,
+            additions=None,
+            reference=None,
+        )
+
         observations, _ = simulate_ahead_with_env(self.env, init_obs, init_state, actions)
         return observations
 

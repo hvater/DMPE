@@ -9,6 +9,7 @@ import exciting_environments as excenvs
 from dmpe.utils.signals import aprbs
 from dmpe.utils.density_estimation import select_bandwidth
 from dmpe.models import NeuralEulerODE
+from dmpe.excitation.excitation_utils import soft_penalty
 
 
 @eqx.filter_jit
@@ -41,8 +42,6 @@ def interact_and_observe(
     # apply u_k and go to x_{k+1}
 
     obs, state = env.step(state, action, env.env_properties)
-
-    obs = obs[0:2]  # only store the first two dimensions of the observation
 
     actions = actions.at[k].set(action)  # store u_k
     observations = observations.at[k + 1].set(obs)  # store x_{k+1}
@@ -82,6 +81,8 @@ def default_dmpe_parameterization(env: excenvs.CoreEnvironment, seed: int = 0, f
         clip_action=False,
         n_starts=20,
         reuse_proposed_actions=True,
+        penalty_function=lambda x, u: soft_penalty(a=x, a_max=1, penalty_order=2)
+        + soft_penalty(a=u, a_max=1, penalty_order=2),
     )
     alg_params["bandwidth"] = float(
         select_bandwidth(
