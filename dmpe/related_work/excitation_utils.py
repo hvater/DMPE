@@ -33,9 +33,40 @@ def soft_penalty(a, a_max=1, penalty_order=2):
     return np.squeeze(penalty)
 
 
+def PMSM_penalty(observations, actions, penalty_order=2):
+
+    action_penalty = soft_penalty(actions, a_max=0.9, penalty_order=1)
+
+    physical_i_d = observations[..., 0] * 125 - 125
+    physical_i_q = observations[..., 1] * 250
+
+    a = physical_i_d / 250
+    b = physical_i_q / 250
+
+    obs_penalty = np.maximum(a**2 + b**2 - 0.9, np.zeros(a.shape))
+    obs_penalty = np.sum(obs_penalty)
+    i_d_penalty = np.sum(np.maximum(a, np.zeros(a.shape)))
+
+    return (obs_penalty + i_d_penalty + action_penalty) * 10
+
+
 def generate_aprbs(amplitudes, durations):
     """Parameterizable aprbs. This is used to transform the aprbs parameters into a signal."""
     return np.concatenate([np.ones(duration) * amplitude for (amplitude, duration) in zip(amplitudes, durations)])
+
+
+def generate_multidim_aprbs(amplitudes, durations):
+    """Parameterizable multidimensional aprbs"""
+    assert amplitudes.shape == durations.shape
+    min_length = np.min(np.sum(durations, axis=1))
+    multidim_signal = np.concatenate(
+        [
+            generate_aprbs(amplitude, duration)[:min_length][..., None]
+            for (amplitude, duration) in zip(amplitudes, durations)
+        ],
+        axis=-1,
+    )
+    return multidim_signal
 
 
 def compress_datapoints(datapoints, N_c, feature_dimension, dist_th):
@@ -134,14 +165,20 @@ class ContinuousGoatsProblem(ElementwiseProblem):
         compression_feat_dim,
         compression_dist_th,
     ):
+        self.action_dim = env.action_dim
 
         self.env = env
         self.obs = obs
+
         self.env_state = env_state
         self.featurize = featurize
 
-        amplitude_variables = {f"a_{number}": Real(bounds=bounds_amplitude) for number in range(prediction_horizon)}
-        duration_variables = {f"d_{number}": Integer(bounds=bounds_duration) for number in range(prediction_horizon)}
+        amplitude_variables = {
+            f"a_{number}": Real(bounds=bounds_amplitude) for number in range(prediction_horizon * self.action_dim)
+        }
+        duration_variables = {
+            f"d_{number}": Integer(bounds=bounds_duration) for number in range(prediction_horizon * self.action_dim)
+        }
         all_vars = dict(amplitude_variables, **duration_variables)
 
         self.permutation_keys = tuple()
@@ -180,10 +217,17 @@ class ContinuousGoatsProblem(ElementwiseProblem):
 
     def _evaluate(self, x, out, *args, **kwargs):
         action_parameters = np.fromiter(x.values(), dtype=np.float64)
-        actions = generate_aprbs(
-            amplitudes=action_parameters[: self.prediction_horizon],
-            durations=action_parameters[self.prediction_horizon :].astype(np.int32),
-        )[:, None]
+
+        amplitudes = action_parameters[: self.prediction_horizon * self.action_dim].reshape(
+            (self.action_dim, self.prediction_horizon)
+        )
+        durations = (
+            action_parameters[self.prediction_horizon * self.action_dim :]
+            .astype(np.int32)
+            .reshape((self.action_dim, self.prediction_horizon))
+        )
+
+        actions = generate_multidim_aprbs(amplitudes=amplitudes, durations=durations)
 
         observations, _ = simulate_ahead_with_env(
             self.env,
@@ -202,9 +246,11 @@ class ContinuousGoatsProblem(ElementwiseProblem):
                 new_data_points=new_datapoints,
             )
 
-        penalty_terms = self.rho_obs * soft_penalty(
-            a=observations, a_max=1, penalty_order=self.penalty_order
-        ) + self.rho_act * soft_penalty(a=actions, a_max=1, penalty_order=self.penalty_order)
+        # penalty_terms = self.rho_obs * soft_penalty(
+        #     a=observations, a_max=1, penalty_order=self.penalty_order
+        # ) + self.rho_act * soft_penalty(a=actions, a_max=1, penalty_order=self.penalty_order)
+
+        penalty_terms = PMSM_penalty(observations, actions, penalty_order=self.penalty_order)
         out["F"] = np.squeeze(score).item() + penalty_terms.item()
 
 
@@ -261,10 +307,15 @@ def optimize_continuous_aprbs(
     )
     proposed_aprbs_params = np.fromiter(res.X.values(), dtype=np.float64)
 
-    amplitudes = proposed_aprbs_params[:application_horizon]
-    all_durations = proposed_aprbs_params[prediction_horizon:]
-    durations = all_durations[:application_horizon].astype(np.int32)
-    new_actions = generate_aprbs(amplitudes=amplitudes, durations=durations)[:, None]
+    action_dim = env.action_dim
+    amplitudes = proposed_aprbs_params[: application_horizon * action_dim].reshape((action_dim, application_horizon))
+
+    all_durations = proposed_aprbs_params[prediction_horizon * action_dim :]
+    durations = (
+        all_durations[: application_horizon * action_dim].astype(np.int32).reshape((action_dim, application_horizon))
+    )
+
+    new_actions = generate_multidim_aprbs(amplitudes=amplitudes, durations=durations)
 
     new_observations, env_state = simulate_ahead_with_env(
         env,
