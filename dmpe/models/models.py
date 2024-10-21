@@ -107,3 +107,11 @@ class NeuralEulerODECartpole(NeuralEulerODE):
             [next_obs[..., 0], next_obs[..., 1], (((next_obs[..., 2] + 1) % 2) - 1), next_obs[..., 3]], axis=-1
         )
         return next_obs
+
+
+class NeuralEulerODEPMSM(NeuralEulerODE):
+    """Pendulum specific model that deals with the periodic properties of the angle information."""
+
+    def step(self, obs, action, tau):
+        next_obs = obs + tau * self.func(obs, action) * 1e5
+        return next_obs
