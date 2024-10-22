@@ -143,7 +143,12 @@ def excite_with_dmpe(
 
     dim_obs_space = obs.shape[0]
     dim_action_space = env.action_dim
-    dim = dim_obs_space + dim_action_space
+
+    if exp_params["alg_params"]["consider_action_distribution"]:
+        dim = dim_obs_space + dim_action_space
+    else:
+        dim = dim_obs_space
+
     n_grid_points = exp_params["alg_params"]["points_per_dim"] ** dim
 
     # setup memory variables
@@ -157,6 +162,7 @@ def excite_with_dmpe(
         excitation_optimizer=optax.adabelief(exp_params["alg_params"]["action_lr"]),
         tau=env.tau,
         n_opt_steps=exp_params["alg_params"]["n_opt_steps"],
+        consider_action_distribution=exp_params["alg_params"]["consider_action_distribution"],
         target_distribution=exp_params["alg_params"]["target_distribution"],
         penalty_function=exp_params["alg_params"]["penalty_function"],
         clip_action=exp_params["alg_params"]["clip_action"],

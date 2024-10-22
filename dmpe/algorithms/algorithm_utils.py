@@ -75,6 +75,7 @@ def default_dmpe_parameterization(env: excenvs.CoreEnvironment, seed: int = 0, f
         points_per_dim=20,
         action_lr=1e-1,
         n_opt_steps=10,
+        consider_action_distribution=True,
         target_distribution=None,
         rho_obs=1,
         rho_act=1,

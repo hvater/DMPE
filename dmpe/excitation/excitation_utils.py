@@ -35,6 +35,7 @@ def loss_function(
     actions: jnp.ndarray,
     density_estimate: DensityEstimate,
     tau: float,
+    consider_action_distribution: bool,
     target_distribution: jnp.ndarray,
     penalty_function: Callable,
 ) -> jnp.ndarray:
@@ -54,14 +55,13 @@ def loss_function(
     """
     observations = simulate_ahead(model=model, init_obs=init_obs, actions=actions, tau=tau)
 
-    # observations, _ = jax.vmap(simulate_ahead_with_env, in_axes=(None, None, 0, None))(
-    #     model.env, init_obs, init_state, actions
-    # )
-    # observations = observations[0]
+    if consider_action_distribution:
+        predicted_density_estimate = update_density_estimate_multiple_observations(
+            density_estimate, jnp.concatenate([observations[0:-1, :], actions], axis=-1)  # observations
+        )
+    else:
+        predicted_density_estimate = update_density_estimate_multiple_observations(density_estimate, observations)
 
-    predicted_density_estimate = update_density_estimate_multiple_observations(
-        density_estimate, jnp.concatenate([observations[0:-1, :], actions], axis=-1)  # observations
-    )
     loss = JSDLoss(
         p=predicted_density_estimate.p / jnp.sum(predicted_density_estimate.p),
         q=target_distribution / jnp.sum(target_distribution),
@@ -82,6 +82,7 @@ def optimize_actions(
     density_estimate,
     n_opt_steps,
     tau,
+    consider_action_distribution,
     target_distribution,
     penalty_function,
 ):
@@ -99,6 +100,7 @@ def optimize_actions(
             proposed_actions,
             density_estimate,
             tau,
+            consider_action_distribution,
             target_distribution,
             penalty_function,
         )
@@ -118,6 +120,7 @@ def optimize_actions(
         proposed_actions,
         density_estimate,
         tau,
+        consider_action_distribution,
         target_distribution,
         penalty_function,
     )
@@ -136,6 +139,7 @@ def optimize_actions_multistart(
     density_estimate,
     n_opt_steps,
     tau,
+    consider_action_distribution,
     target_distribution,
     penalty_function,
 ):
@@ -148,7 +152,7 @@ def optimize_actions_multistart(
 
     all_optimized_actions, all_losses = jax.vmap(
         optimize_actions,
-        in_axes=(None, None, 0, None, None, None, None, None, None, None, None, None),
+        in_axes=(None, None, 0, None, None, None, None, None, None, None, None, None, None),
     )(
         loss_function,
         grad_loss_function,
@@ -160,6 +164,7 @@ def optimize_actions_multistart(
         density_estimate,
         n_opt_steps,
         tau,
+        consider_action_distribution,
         target_distribution,
         penalty_function,
     )
@@ -172,14 +177,19 @@ class Exciter(eqx.Module):
     """A class that carries the necessary tools for excitation input computations.
 
     Args:
+        loss_function:
         grad_loss_function: The gradient of the loss function w.r.t. the actions as
             a callable function
         excitiation_optimizer: The optimizer for the excitation input computation
-        n_opt_steps: Number of SGD steps per iteration
         tau: The time step length of the simulation
+        n_opt_steps: Number of SGD steps per iteration
+        consider_action_distribution: Whether to consider the action as part of the
+            feature vector
         target_distribution: The targeted distribution for the data density
-        rho_obs: Weighting factor for observation soft constraints
-        rho_act: Weighting factor for action soft constraints
+        penalty_function:
+        clip_action: Whether to clip the actions to the action space limits
+        n_starts: Number of random parallel starts for the optimization
+        reuse_proposed_actions: Whether to reuse the proposed actions from the previous
     """
 
     loss_function: Callable
@@ -187,6 +197,7 @@ class Exciter(eqx.Module):
     excitation_optimizer: optax._src.base.GradientTransformationExtraArgs
     tau: float
     n_opt_steps: int
+    consider_action_distribution: bool
     target_distribution: jnp.ndarray
     penalty_function: Callable
     clip_action: bool
@@ -248,6 +259,7 @@ class Exciter(eqx.Module):
             density_estimate=density_estimate,
             n_opt_steps=self.n_opt_steps,
             tau=self.tau,
+            consider_action_distribution=self.consider_action_distribution,
             target_distribution=self.target_distribution,
             penalty_function=self.penalty_function,
         )
@@ -262,8 +274,11 @@ class Exciter(eqx.Module):
         next_proposed_actions = next_proposed_actions.at[-1, :].set(new_proposed_action)
 
         # update grid KDE with x_k and u_k
-        density_estimate = update_density_estimate_single_observation(
-            density_estimate, jnp.concatenate([obs, action], axis=-1)  # obs
-        )
+        if self.consider_action_distribution:
+            density_estimate = update_density_estimate_single_observation(
+                density_estimate, jnp.concatenate([obs, action], axis=-1)
+            )
+        else:
+            density_estimate = update_density_estimate_single_observation(density_estimate, obs)
 
         return action, next_proposed_actions, density_estimate, loss, expl_key
