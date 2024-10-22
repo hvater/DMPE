@@ -63,6 +63,7 @@ def excite_and_fit(
     for k in tqdm(range(n_time_steps)):
         action, proposed_actions, density_estimate, prediction_loss, expl_key = exciter.choose_action(
             obs=obs,
+            state=state,
             model=model,
             density_estimate=density_estimate,
             proposed_actions=proposed_actions,
@@ -137,16 +138,13 @@ def excite_with_dmpe(
         Tuple[jnp.ndarray, jnp.ndarray, eqx.Module, DensityEstimate]: A tuple containing the history of observations,
         the history of actions, the trained model, and the density estimate.
     """
-    dim_obs_space = 2  # env.physical_state_dim  # assumes fully observable system
+    # setup x_0 / y_0
+    obs, state = env.reset(env.env_properties)
+
+    dim_obs_space = obs.shape[0]
     dim_action_space = env.action_dim
     dim = dim_obs_space + dim_action_space
     n_grid_points = exp_params["alg_params"]["points_per_dim"] ** dim
-
-    # setup x_0 / y_0
-    obs, state = env.reset()
-    # obs = obs[0]
-
-    obs = obs[0, 0:2]
 
     # setup memory variables
     observations = jnp.zeros((exp_params["n_time_steps"], dim_obs_space))
@@ -155,14 +153,12 @@ def excite_with_dmpe(
 
     exciter = Exciter(
         loss_function=loss_function,
-        grad_loss_function=jax.value_and_grad(loss_function, argnums=(2)),
+        grad_loss_function=jax.value_and_grad(loss_function, argnums=(3)),
         excitation_optimizer=optax.adabelief(exp_params["alg_params"]["action_lr"]),
         tau=env.tau,
         n_opt_steps=exp_params["alg_params"]["n_opt_steps"],
-        target_distribution=jnp.ones(shape=(n_grid_points, 1)) * 1 / (1 - (-1)) ** dim,
-        rho_obs=exp_params["alg_params"]["rho_obs"],
-        rho_act=exp_params["alg_params"]["rho_act"],
-        penalty_order=exp_params["alg_params"]["penalty_order"],
+        target_distribution=exp_params["alg_params"]["target_distribution"],
+        penalty_function=exp_params["alg_params"]["penalty_function"],
         clip_action=exp_params["alg_params"]["clip_action"],
         n_starts=exp_params["alg_params"]["n_starts"],
         reuse_proposed_actions=exp_params["alg_params"]["reuse_proposed_actions"],

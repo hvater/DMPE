@@ -75,6 +75,7 @@ def default_dmpe_parameterization(env: excenvs.CoreEnvironment, seed: int = 0, f
         points_per_dim=20,
         action_lr=1e-1,
         n_opt_steps=10,
+        target_distribution=None,
         rho_obs=1,
         rho_act=1,
         penalty_order=2,
@@ -84,6 +85,11 @@ def default_dmpe_parameterization(env: excenvs.CoreEnvironment, seed: int = 0, f
         penalty_function=lambda x, u: soft_penalty(a=x, a_max=1, penalty_order=2)
         + soft_penalty(a=u, a_max=1, penalty_order=2),
     )
+
+    alg_params["target_distribution"] = (
+        jnp.ones(shape=(alg_params["n_grid_points"], 1)) * 1 / (1 - (-1)) ** alg_params["dim"]
+    )
+
     alg_params["bandwidth"] = float(
         select_bandwidth(
             delta_x=2,
