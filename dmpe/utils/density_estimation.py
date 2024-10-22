@@ -65,23 +65,10 @@ class DensityEstimate(eqx.Module):
         )
 
     @classmethod
-    def from_dataset(
+    def from_observations_actions(
         cls, observations, actions, use_actions=True, points_per_dim=30, x_min=-1, x_max=1, bandwidth=0.05
     ):
         """Create a fresh density estimate from gathered data."""
-
-        if use_actions:
-            dim = observations.shape[-1] + actions.shape[-1]
-        else:
-            dim = observations.shape[-1]
-        n_grid_points = points_per_dim**dim
-
-        density_estimate = cls(
-            p=jnp.zeros([1, n_grid_points, 1]),
-            x_g=build_grid(dim, x_min, x_max, points_per_dim),
-            bandwidth=jnp.array([bandwidth]),
-            n_observations=jnp.array([0]),
-        )
 
         if observations.shape[0] == actions.shape[0] + 1:
             data_points = (
@@ -90,6 +77,20 @@ class DensityEstimate(eqx.Module):
         else:
             data_points = jnp.concatenate([observations, actions], axis=-1)[None] if use_actions else observations[None]
 
+        return cls.from_dataset(data_points, points_per_dim, x_min, x_max, bandwidth)
+
+    @classmethod
+    def from_dataset(cls, data_points, points_per_dim=30, x_min=-1, x_max=1, bandwidth=0.05):
+
+        dim = data_points.shape[-1]
+
+        n_grid_points = points_per_dim**dim
+        density_estimate = cls(
+            p=jnp.zeros([1, n_grid_points, 1]),
+            x_g=build_grid(dim, x_min, x_max, points_per_dim),
+            bandwidth=jnp.array([bandwidth]),
+            n_observations=jnp.array([0]),
+        )
         density_estimate = jax.vmap(
             update_density_estimate_multiple_observations,
             in_axes=(DensityEstimate(0, None, None, None), 0),
