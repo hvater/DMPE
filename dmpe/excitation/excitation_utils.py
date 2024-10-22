@@ -8,7 +8,7 @@ import equinox as eqx
 
 from exciting_environments.core_env import CoreEnvironment
 
-from dmpe.models.model_utils import simulate_ahead
+from dmpe.models.model_utils import simulate_ahead, simulate_ahead_with_env
 from dmpe.utils.density_estimation import (
     DensityEstimate,
     update_density_estimate_single_observation,
@@ -31,13 +31,12 @@ def soft_penalty(a, a_max=1, penalty_order=2):
 def loss_function(
     model,
     init_obs: jnp.ndarray,
+    init_state,
     actions: jnp.ndarray,
     density_estimate: DensityEstimate,
     tau: float,
     target_distribution: jnp.ndarray,
-    rho_obs: float,
-    rho_act: float,
-    penalty_order: int,
+    penalty_function: Callable,
 ) -> jnp.ndarray:
     """Predicts a trajectory based on the given actions and the model and computes the
     corresponding loss value.
@@ -55,19 +54,19 @@ def loss_function(
     """
     observations = simulate_ahead(model=model, init_obs=init_obs, actions=actions, tau=tau)
 
+    # observations, _ = jax.vmap(simulate_ahead_with_env, in_axes=(None, None, 0, None))(
+    #     model.env, init_obs, init_state, actions
+    # )
+    # observations = observations[0]
+
     predicted_density_estimate = update_density_estimate_multiple_observations(
-        density_estimate, jnp.concatenate([observations[0:-1, :], actions], axis=-1)
+        density_estimate, jnp.concatenate([observations[0:-1, :], actions], axis=-1)  # observations
     )
     loss = JSDLoss(
         p=predicted_density_estimate.p / jnp.sum(predicted_density_estimate.p),
         q=target_distribution / jnp.sum(target_distribution),
     )
-    penalty_terms = (
-        rho_obs * soft_penalty(a=observations, a_max=1, penalty_order=penalty_order)
-        + rho_act * soft_penalty(a=actions, a_max=1, penalty_order=penalty_order)
-        # + 5e-2 * jnp.sum(jnp.diff(actions, axis=0) ** 2)
-    )
-
+    penalty_terms = penalty_function(observations, actions)
     return loss + penalty_terms
 
 
@@ -79,13 +78,12 @@ def optimize_actions(
     model,
     optimizer,
     init_obs,
+    init_state,
     density_estimate,
     n_opt_steps,
     tau,
     target_distribution,
-    rho_obs,
-    rho_act,
-    penalty_order,
+    penalty_function,
 ):
     """Uses the model to compute the effect of actions onto the observation trajectory to
     optimize the actions w.r.t. the given (gradient of the) loss function.
@@ -97,13 +95,12 @@ def optimize_actions(
         value, grad = grad_loss_function(
             model,
             init_obs,
+            init_state,
             proposed_actions,
             density_estimate,
             tau,
             target_distribution,
-            rho_obs,
-            rho_act,
-            penalty_order,
+            penalty_function,
         )
         updates, opt_state = optimizer.update(grad, opt_state, proposed_actions)
         proposed_actions = optax.apply_updates(proposed_actions, updates)
@@ -117,13 +114,12 @@ def optimize_actions(
     loss = loss_function(
         model,
         init_obs,
+        init_state,
         proposed_actions,
         density_estimate,
         tau,
         target_distribution,
-        rho_obs,
-        rho_act,
-        penalty_order,
+        penalty_function,
     )
 
     return proposed_actions, loss
@@ -136,13 +132,12 @@ def optimize_actions_multistart(
     model,
     optimizer,
     init_obs,
+    init_state,
     density_estimate,
     n_opt_steps,
     tau,
     target_distribution,
-    rho_obs,
-    rho_act,
-    penalty_order,
+    penalty_function,
 ):
     """Uses the model to compute the effect of actions onto the observation trajectory to
     optimize the actions w.r.t. the given (gradient of the) loss function. This is done for
@@ -153,7 +148,7 @@ def optimize_actions_multistart(
 
     all_optimized_actions, all_losses = jax.vmap(
         optimize_actions,
-        in_axes=(None, None, 0, None, None, None, None, None, None, None, None, None, None),
+        in_axes=(None, None, 0, None, None, None, None, None, None, None, None, None),
     )(
         loss_function,
         grad_loss_function,
@@ -161,13 +156,12 @@ def optimize_actions_multistart(
         model,
         optimizer,
         init_obs,
+        init_state,
         density_estimate,
         n_opt_steps,
         tau,
         target_distribution,
-        rho_obs,
-        rho_act,
-        penalty_order,
+        penalty_function,
     )
 
     best_idx = jnp.argmin(all_losses)
@@ -194,9 +188,7 @@ class Exciter(eqx.Module):
     tau: float
     n_opt_steps: int
     target_distribution: jnp.ndarray
-    rho_obs: float
-    rho_act: float
-    penalty_order: int
+    penalty_function: Callable
     clip_action: bool
     n_starts: int
     reuse_proposed_actions: bool
@@ -205,6 +197,7 @@ class Exciter(eqx.Module):
     def choose_action(
         self,
         obs: jnp.ndarray,
+        state,
         model,
         density_estimate: DensityEstimate,
         proposed_actions: jnp.ndarray,
@@ -251,13 +244,12 @@ class Exciter(eqx.Module):
             model=model,
             optimizer=self.excitation_optimizer,
             init_obs=obs,
+            init_state=state,
             density_estimate=density_estimate,
             n_opt_steps=self.n_opt_steps,
             tau=self.tau,
             target_distribution=self.target_distribution,
-            rho_obs=self.rho_obs,
-            rho_act=self.rho_act,
-            penalty_order=self.penalty_order,
+            penalty_function=self.penalty_function,
         )
 
         action = proposed_actions[0, :]
@@ -271,7 +263,7 @@ class Exciter(eqx.Module):
 
         # update grid KDE with x_k and u_k
         density_estimate = update_density_estimate_single_observation(
-            density_estimate, jnp.concatenate([obs, action], axis=-1)
+            density_estimate, jnp.concatenate([obs, action], axis=-1)  # obs
         )
 
         return action, next_proposed_actions, density_estimate, loss, expl_key
