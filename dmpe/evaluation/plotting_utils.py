@@ -5,6 +5,7 @@ import numpy as np
 import jax.numpy as jnp
 
 from dmpe.models.model_utils import simulate_ahead
+from dmpe.utils.density_estimation import DensityEstimate
 
 
 def plot_sequence(observations, actions, tau, obs_labels, action_labels, fig=None, axs=None, dotted=False):
@@ -305,5 +306,52 @@ def plot_metrics_by_sequence_length_for_all_algos(data_per_algo, lengths, algo_n
     [ax.grid(True) for ax in axs]
     [ax.legend() for ax in axs]
     plt.tight_layout()
+
+    return fig
+
+
+def plot_feature_combinations(data, labels, mode="plot"):
+    """Plot all combinations of the data set."""
+    assert data.shape[-1] == len(labels)
+    assert data.ndim == 2
+
+    n_features = data.shape[-1]
+
+    fig, axs = plt.subplots(nrows=n_features, ncols=n_features, figsize=(18.2, 18.2), sharex=True, sharey=True)
+
+    for i in range(n_features):
+        for j in range(n_features):
+            if mode == "plot":
+                axs[j, i].scatter(data[..., i], data[..., j], s=1)
+            elif mode == "contourf":
+                density_estimate = DensityEstimate.from_dataset(
+                    jnp.concatenate([data[..., i][..., None], data[..., j][..., None]], axis=-1)[None],
+                    points_per_dim=100,
+                    bandwidth=0.05,
+                )
+
+                p_est = density_estimate.p
+                x = density_estimate.x_g
+
+                grid_len_per_dim = int(np.sqrt(x.shape[0]))
+                x_plot = x.reshape((grid_len_per_dim, grid_len_per_dim, 2))
+
+                cax = axs[j, i].contourf(
+                    x_plot[..., 0],
+                    x_plot[..., 1],
+                    p_est.reshape(x_plot.shape[:-1]),
+                    antialiased=False,
+                    levels=50,
+                    alpha=0.9,
+                    cmap=plt.cm.coolwarm,
+                )
+
+            axs[j, 0].set_ylabel(labels[j])
+
+            axs[j, i].grid(True)
+            axs[j, i].set_xlim(-1.1, 1.1)
+            axs[j, i].set_ylim(-1.1, 1.1)
+        axs[-1, i].set_xlabel(labels[i])
+    fig.tight_layout()
 
     return fig
