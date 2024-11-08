@@ -35,11 +35,11 @@ def default_jsd(observations, actions, points_per_dim=50, bounds=(-1, 1), bandwi
         n_observations=jnp.array([0]),
     )
 
-    if data_points.shape[0] > 5000:
+    if data_points.shape[0] > 500:
         # if there are too many datapoints at once, split them up and add
         # them in smaller chunks to the density estimate
 
-        block_size = 1000
+        block_size = 500
 
         for n in range(0, data_points.shape[0] + 1, block_size):
             density_estimate = update_density_estimate_multiple_observations(

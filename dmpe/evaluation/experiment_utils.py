@@ -224,7 +224,7 @@ def quick_eval(env, identifier, results_path, model_class=None):
         actions=actions,
         tau=env.tau,
         obs_labels=env.obs_description,
-        action_labels=[r"$u$"],
+        action_labels=env.action_description,
     )
     plt.show()
 

@@ -4,7 +4,7 @@ import numpy as np
 
 import jax.numpy as jnp
 
-from dmpe.models.model_utils import simulate_ahead
+from dmpe.models.model_utils import simulate_ahead, simulate_ahead_with_env
 from dmpe.utils.density_estimation import DensityEstimate
 
 
@@ -36,10 +36,10 @@ def plot_sequence(observations, actions, tau, obs_labels, action_labels, fig=Non
         axs[1].set_ylabel(obs_labels[1])
         axs[1].set_xlabel(obs_labels[0])
     elif observations.shape[-1] > 2:
-        axs[1].scatter(jnp.squeeze(observations[..., -2]), jnp.squeeze(observations[..., -1]), s=1)
-        axs[1].title.set_text("observation plane, last two obs")
-        axs[1].set_ylabel(obs_labels[-1])
-        axs[1].set_xlabel(obs_labels[-2])
+        axs[1].scatter(jnp.squeeze(observations[..., 0]), jnp.squeeze(observations[..., 1]), s=1)
+        axs[1].title.set_text("observation plane, first two obs")
+        axs[1].set_ylabel(obs_labels[1])
+        axs[1].set_xlabel(obs_labels[0])
 
     if actions is not None:
         if observations.shape[0] == actions.shape[0] + 1:
@@ -115,8 +115,8 @@ def append_predictions_to_sequence_plot(
         )
     elif pred_observations.shape[-1] > 2:
         axs[1].scatter(
-            jnp.squeeze(pred_observations[..., -2]),
-            jnp.squeeze(pred_observations[..., -1]),
+            jnp.squeeze(pred_observations[..., 0]),
+            jnp.squeeze(pred_observations[..., 1]),
             s=1,
             color=mcolors.CSS4_COLORS["orange"],
         )
@@ -141,7 +141,7 @@ def append_predictions_to_sequence_plot(
 
 
 def plot_sequence_and_prediction(
-    observations, actions, tau, obs_labels, actions_labels, model, init_obs, proposed_actions
+    observations, actions, tau, obs_labels, actions_labels, model, init_obs, init_state, proposed_actions
 ):
     """Plots the current trajectory and appends the predictions from the optimization."""
 
@@ -153,7 +153,13 @@ def plot_sequence_and_prediction(
         action_labels=actions_labels,
     )
 
-    pred_observations = simulate_ahead(model=model, init_obs=init_obs, actions=proposed_actions, tau=tau)
+    #  pred_observations = simulate_ahead(model=model, init_obs=init_obs, actions=proposed_actions, tau=tau)
+
+    pred_observations, state = simulate_ahead_with_env(
+        env=model, init_obs=init_obs, init_state=init_state, actions=proposed_actions
+    )
+    pred_observations = pred_observations[1:]
+    proposed_actions = proposed_actions[:-1]
 
     fig, axs = append_predictions_to_sequence_plot(
         fig=fig,
