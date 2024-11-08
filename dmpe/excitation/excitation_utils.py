@@ -53,7 +53,12 @@ def loss_function(
         target_distribution: The goal distribution of the data. The JSD loss is computed
             w.r.t. this distribution
     """
-    observations = simulate_ahead(model=model, init_obs=init_obs, actions=actions, tau=tau)
+    if isinstance(model, eqx.Module):
+        observations = simulate_ahead(model=model, init_obs=init_obs, actions=actions, tau=tau)
+    else:
+        observations, state = simulate_ahead_with_env(
+            env=model, init_obs=init_obs, init_state=init_state, actions=actions
+        )
 
     if consider_action_distribution:
         predicted_density_estimate = update_density_estimate_multiple_observations(

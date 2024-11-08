@@ -3,6 +3,7 @@ import matplotlib.colors as mcolors
 import numpy as np
 
 import jax.numpy as jnp
+import equinox as eqx
 
 from dmpe.models.model_utils import simulate_ahead, simulate_ahead_with_env
 from dmpe.utils.density_estimation import DensityEstimate
@@ -152,12 +153,12 @@ def plot_sequence_and_prediction(
         obs_labels=obs_labels,
         action_labels=actions_labels,
     )
-
-    #  pred_observations = simulate_ahead(model=model, init_obs=init_obs, actions=proposed_actions, tau=tau)
-
-    pred_observations, state = simulate_ahead_with_env(
-        env=model, init_obs=init_obs, init_state=init_state, actions=proposed_actions
-    )
+    if isinstance(model, eqx.Module):
+        pred_observations = simulate_ahead(model=model, init_obs=init_obs, actions=proposed_actions, tau=tau)
+    else:
+        pred_observations, state = simulate_ahead_with_env(
+            env=model, init_obs=init_obs, init_state=init_state, actions=proposed_actions
+        )
     pred_observations = pred_observations[1:]
     proposed_actions = proposed_actions[:-1]
 

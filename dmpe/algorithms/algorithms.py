@@ -103,6 +103,7 @@ def excite_and_fit(
                 actions_labels=env.action_description,
                 model=model,
                 init_obs=obs,
+                init_state=state,
                 proposed_actions=proposed_actions,
             )
             plt.show()
@@ -138,7 +139,6 @@ def excite_with_dmpe(
         Tuple[jnp.ndarray, jnp.ndarray, eqx.Module, DensityEstimate]: A tuple containing the history of observations,
         the history of actions, the trained model, and the density estimate.
     """
-    # setup x_0 / y_0
     obs, state = env.reset(env.env_properties)
 
     dim_obs_space = obs.shape[0]
@@ -172,7 +172,7 @@ def excite_with_dmpe(
 
     if exp_params["model_trainer_params"] is None or exp_params["model_params"] is None:
         model_trainer = None
-        model = exp_params["model_env_wrapper"](env)
+        model = env  # exp_params["model_env_wrapper"](env)
         opt_state_model = None
     else:
         model_trainer = ModelTrainer(
