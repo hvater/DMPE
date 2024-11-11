@@ -253,7 +253,7 @@ def excite_with_sGOATS(
 
 
 def excite_with_iGOATS(
-    n_timesteps,
+    n_time_steps,
     env,
     prediction_horizon,
     application_horizon,
@@ -265,11 +265,9 @@ def excite_with_iGOATS(
     rng,
     compress_data,
     compression_target_N,
-    rho_obs,
-    rho_act,
-    penalty_order,
     compression_feat_dim,
     compression_dist_th,
+    penalty_function,
     plot_subsequences=False,
 ):
     """System excitation using the iGOATs algorithm from [Smits2024]."""
@@ -286,7 +284,7 @@ def excite_with_iGOATS(
         mating=MixedVariableMating(eliminate_duplicates=MixedVariableDuplicateElimination()),
     )
 
-    pbar = tqdm(total=n_timesteps)
+    pbar = tqdm(total=n_time_steps)
     while True:
 
         if len(all_observations) > 0 and len(all_actions) > 0:
@@ -313,11 +311,9 @@ def excite_with_iGOATS(
             starting_actions=starting_actions,
             compress_data=compress_data,
             compression_target_N=compression_target_N,
-            rho_act=rho_act,
-            rho_obs=rho_obs,
-            penalty_order=penalty_order,
             compression_dist_th=compression_dist_th,
             compression_feat_dim=compression_feat_dim,
+            penalty_function=penalty_function,
         )
 
         obs = new_observations[-1]
@@ -337,7 +333,7 @@ def excite_with_iGOATS(
 
         pbar.update(new_actions.shape[0])
 
-        if np.concatenate(all_observations).shape[0] >= n_timesteps:
+        if np.concatenate(all_observations).shape[0] >= n_time_steps:
             break
 
     pbar.close()
