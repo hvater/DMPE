@@ -19,7 +19,7 @@ from dmpe.utils.metrics import (
 )
 
 
-def default_jsd(observations, actions, points_per_dim=50, bounds=(-1, 1), bandwidth=0.05):
+def default_jsd(observations, actions, points_per_dim=50, bounds=(-1, 1), bandwidth=0.05, target_distribution=None):
 
     if observations.shape[0] == actions.shape[0] + 1:
         observations = observations[0:-1, :]
@@ -52,8 +52,9 @@ def default_jsd(observations, actions, points_per_dim=50, bounds=(-1, 1), bandwi
             data_points,
         )
 
-    target_distribution = jnp.ones(density_estimate.p.shape)
-    target_distribution /= jnp.sum(target_distribution)
+    if target_distribution is None:
+        target_distribution = jnp.ones(density_estimate.p.shape)
+        target_distribution /= jnp.sum(target_distribution)
 
     return JSDLoss(
         p=density_estimate.p / jnp.sum(density_estimate.p),
