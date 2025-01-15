@@ -319,7 +319,7 @@ def plot_metrics_by_sequence_length_for_all_algos(data_per_algo, lengths, algo_n
     return fig
 
 
-def plot_feature_combinations(data, labels, mode="plot"):
+def plot_feature_combinations(data, labels, mode="plot", points_per_dim=100, bandwidth=0.05):
     """Plot all combinations of the data set."""
     assert data.shape[-1] == len(labels)
     assert data.ndim == 2
@@ -335,8 +335,8 @@ def plot_feature_combinations(data, labels, mode="plot"):
             elif mode == "contourf":
                 density_estimate = DensityEstimate.from_dataset(
                     jnp.concatenate([data[..., i][..., None], data[..., j][..., None]], axis=-1)[None],
-                    points_per_dim=100,
-                    bandwidth=0.05,
+                    points_per_dim=points_per_dim,
+                    bandwidth=bandwidth,
                 )
 
                 p_est = density_estimate.p
