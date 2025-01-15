@@ -46,6 +46,8 @@ def plot_sequence(observations, actions, tau, obs_labels, action_labels, fig=Non
         if observations.shape[0] == actions.shape[0] + 1:
             observations_ = observations[:-1]
             t = t[:-1]
+        else:
+            observations_ = observations
 
         if observations.shape[-1] == 1 and actions.shape[-1] == 1:
             axs[1].scatter(jnp.squeeze(actions[..., 0]), jnp.squeeze(observations_[..., 0]), s=1)
