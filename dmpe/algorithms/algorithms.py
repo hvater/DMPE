@@ -215,7 +215,7 @@ def excite_with_dmpe(
     return observations, actions, model, density_estimate, losses, proposed_actions
 
 
-def default_dmpe(env, seed=0, featurize=None, model_class=None, plot_every=None):
+def default_dmpe(env, seed=0, n_time_steps=5000, featurize=None, model_class=None, plot_every=None):
     """Runs DMPE with default parameterization. The parameter choices might
     not be optimal for a given system.
 
@@ -232,6 +232,6 @@ def default_dmpe(env, seed=0, featurize=None, model_class=None, plot_every=None)
 
     return excite_with_dmpe(
         env,
-        *default_dmpe_parameterization(env, seed, featurize, model_class),
+        *default_dmpe_parameterization(env, seed, n_time_steps, featurize, model_class),
         plot_every,
     )

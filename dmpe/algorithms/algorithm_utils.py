@@ -49,7 +49,9 @@ def interact_and_observe(
     return obs, state, actions, observations
 
 
-def default_dmpe_parameterization(env: excenvs.CoreEnvironment, seed: int = 0, featurize=None, model_class=None):
+def default_dmpe_parameterization(
+    env: excenvs.CoreEnvironment, seed: int = 0, n_time_steps=5_000, featurize=None, model_class=None
+):
     """Returns a default parameterization for the DMPE algorithm.
 
     This parameterization is intended as a starting point to apply to a given system.
@@ -71,10 +73,10 @@ def default_dmpe_parameterization(env: excenvs.CoreEnvironment, seed: int = 0, f
     """
     alg_params = dict(
         bandwidth=None,
-        n_prediction_steps=50,
+        n_prediction_steps=10,
         points_per_dim=20,
         action_lr=1e-1,
-        n_opt_steps=10,
+        n_opt_steps=5,
         consider_action_distribution=True,
         target_distribution=None,
         rho_obs=1,
@@ -87,9 +89,9 @@ def default_dmpe_parameterization(env: excenvs.CoreEnvironment, seed: int = 0, f
         + soft_penalty(a=u, a_max=1, penalty_order=2),
     )
 
-    alg_params["target_distribution"] = (
-        jnp.ones(shape=(alg_params["n_grid_points"], 1)) * 1 / (1 - (-1)) ** alg_params["dim"]
-    )
+    dim = env.physical_state_dim + env.action_dim
+
+    alg_params["target_distribution"] = jnp.ones(shape=(alg_params["points_per_dim"] ** dim, 1)) * 1 / (1 - (-1)) ** dim
 
     alg_params["bandwidth"] = float(
         select_bandwidth(
@@ -108,11 +110,14 @@ def default_dmpe_parameterization(env: excenvs.CoreEnvironment, seed: int = 0, f
         featurize=(lambda x: x) if featurize is None else featurize,
         model_lr=1e-4,
     )
-    model_params = dict(obs_dim=2, action_dim=env.action_dim, width_size=128, depth=3, key=None)
+
+    model_params = dict(
+        obs_dim=env.reset(env.env_properties)[0].shape[0], action_dim=env.action_dim, width_size=128, depth=3, key=None
+    )
 
     exp_params = dict(
         seed=seed,
-        n_time_steps=15_000,
+        n_time_steps=n_time_steps,
         model_class=NeuralEulerODE if model_class is None else model_class,
         env_params=None,
         alg_params=alg_params,
