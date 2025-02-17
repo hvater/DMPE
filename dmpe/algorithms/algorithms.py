@@ -181,7 +181,7 @@ def excite_with_dmpe(
         start_optimizing=exp_params["alg_params"]["start_optimizing"],
         loss_function=loss_function,
         grad_loss_function=jax.value_and_grad(loss_function, argnums=(3)),
-        excitation_optimizer=optax.adabelief(exp_params["alg_params"]["action_lr"]),
+        excitation_optimizer=exp_params["alg_params"]["excitation_optimizer"],
         tau=env.tau,
         n_opt_steps=exp_params["alg_params"]["n_opt_steps"],
         consider_action_distribution=exp_params["alg_params"]["consider_action_distribution"],

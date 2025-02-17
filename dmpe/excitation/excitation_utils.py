@@ -109,7 +109,26 @@ def optimize_actions(
             target_distribution,
             penalty_function,
         )
-        updates, opt_state = optimizer.update(grad, opt_state, proposed_actions)
+
+        if isinstance(optimizer, optax._src.base.GradientTransformationExtraArgs):
+
+            opt_loss_fn = lambda proposed_actions: loss_function(
+                model,
+                init_obs,
+                init_state,
+                proposed_actions,
+                density_estimate,
+                tau,
+                consider_action_distribution,
+                target_distribution,
+                penalty_function,
+            )
+
+            updates, opt_state = optimizer.update(
+                grad, opt_state, proposed_actions, grad=grad, value=value, value_fn=opt_loss_fn
+            )
+        else:
+            updates, opt_state = optimizer.update(grad, opt_state, proposed_actions)
         proposed_actions = optax.apply_updates(proposed_actions, updates)
 
         # proposed_actions = proposed_actions - lr * grad
