@@ -13,7 +13,11 @@ from dmpe.algorithms.algorithm_utils import interact_and_observe, default_dmpe_p
 from dmpe.evaluation.plotting_utils import plot_sequence_and_prediction
 from dmpe.excitation import loss_function, Exciter
 from dmpe.models.model_training import ModelTrainer
-from dmpe.utils.density_estimation import DensityEstimate, build_grid
+from dmpe.utils.density_estimation import (
+    DensityEstimate,
+    build_grid,
+    update_density_estimate_single_observation,
+)
 from dmpe.utils.metrics import JSDLoss
 
 
@@ -61,14 +65,26 @@ def excite_and_fit(
     data_losses = []
 
     for k in tqdm(range(n_time_steps)):
-        action, proposed_actions, density_estimate, prediction_loss, expl_key = exciter.choose_action(
-            obs=obs,
-            state=state,
-            model=model,
-            density_estimate=density_estimate,
-            proposed_actions=proposed_actions,
-            expl_key=expl_key,
-        )
+        if k > exciter.start_optimizing:
+            action, proposed_actions, density_estimate, prediction_loss, expl_key = exciter.choose_action(
+                obs=obs,
+                state=state,
+                model=model,
+                density_estimate=density_estimate,
+                proposed_actions=proposed_actions,
+                expl_key=expl_key,
+            )
+        else:
+            # run the exciter without optimizing actions
+            expl_key, expl_action_key = jax.random.split(expl_key, 2)
+            action, proposed_actions, density_estimate = exciter.process_propositions(
+                obs=obs,
+                density_estimate=density_estimate,
+                proposed_actions=proposed_actions,
+                expl_action_key=expl_action_key,
+            )
+            prediction_loss = 0.0
+
         prediction_losses.append(prediction_loss)
 
         obs, state, actions, observations = interact_and_observe(
@@ -85,6 +101,11 @@ def excite_and_fit(
                     opt_state=opt_state_model,
                     loader_key=loader_key,
                 )
+        elif hasattr(model, "fit"):
+            model = model.fit(model, jnp.array([k]), observations, actions)
+        else:
+            if k == 0:
+                print("Model is used statically and not re-fitted or updated otherwise.")
 
         data_loss = JSDLoss(
             density_estimate.p / jnp.sum(density_estimate.p),
@@ -157,6 +178,7 @@ def excite_with_dmpe(
     actions = jnp.zeros((exp_params["n_time_steps"] - 1, dim_action_space))
 
     exciter = Exciter(
+        start_optimizing=exp_params["alg_params"]["start_optimizing"],
         loss_function=loss_function,
         grad_loss_function=jax.value_and_grad(loss_function, argnums=(3)),
         excitation_optimizer=optax.adabelief(exp_params["alg_params"]["action_lr"]),
@@ -170,9 +192,13 @@ def excite_with_dmpe(
         reuse_proposed_actions=exp_params["alg_params"]["reuse_proposed_actions"],
     )
 
-    if exp_params["model_trainer_params"] is None or exp_params["model_params"] is None:
+    if exp_params["model_trainer_params"] is None and exp_params["model_params"] is None:
         model_trainer = None
         model = env  # exp_params["model_env_wrapper"](env)
+        opt_state_model = None
+    elif exp_params["model_trainer_params"] is None and exp_params["model_params"] is not None:
+        model_trainer = None
+        model = exp_params["model_class"](**exp_params["model_params"])
         opt_state_model = None
     else:
         model_trainer = ModelTrainer(

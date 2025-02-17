@@ -182,6 +182,7 @@ class Exciter(eqx.Module):
     """A class that carries the necessary tools for excitation input computations.
 
     Args:
+        start_optimizing: When to start optimizing actions
         loss_function:
         grad_loss_function: The gradient of the loss function w.r.t. the actions as
             a callable function
@@ -197,6 +198,7 @@ class Exciter(eqx.Module):
         reuse_proposed_actions: Whether to reuse the proposed actions from the previous
     """
 
+    start_optimizing: int
     loss_function: Callable
     grad_loss_function: Callable
     excitation_optimizer: optax._src.base.GradientTransformationExtraArgs
@@ -239,7 +241,7 @@ class Exciter(eqx.Module):
         if self.reuse_proposed_actions:
             n_random_starts = self.n_starts - 1
 
-        expl_key, new_proposed_actions_key, expl_action_key, _ = jax.random.split(expl_key, 4)
+        expl_key, new_proposed_actions_key, expl_action_key = jax.random.split(expl_key, 3)
 
         if n_random_starts > 0:
             random_proposed_actions = jax.random.uniform(
@@ -269,7 +271,25 @@ class Exciter(eqx.Module):
             penalty_function=self.penalty_function,
         )
 
+        action, next_proposed_actions, density_estimate = self.process_propositions(
+            obs=obs,
+            density_estimate=density_estimate,
+            proposed_actions=proposed_actions,
+            expl_action_key=expl_action_key,
+        )
+
+        return action, next_proposed_actions, density_estimate, loss, expl_key
+
+    @eqx.filter_jit
+    def process_propositions(
+        self,
+        obs,
+        density_estimate,
+        proposed_actions,
+        expl_action_key,
+    ):
         action = proposed_actions[0, :]
+
         if self.clip_action:
             action = jnp.clip(action, -1, 1)
 
@@ -286,4 +306,4 @@ class Exciter(eqx.Module):
         else:
             density_estimate = update_density_estimate_single_observation(density_estimate, obs)
 
-        return action, next_proposed_actions, density_estimate, loss, expl_key
+        return action, next_proposed_actions, density_estimate

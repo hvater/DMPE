@@ -78,3 +78,14 @@ class SimulationPMSM_RLS(PMSM_RLS):
         _, observations = jax.lax.scan(body_fun, jnp.squeeze(init_obs), actions)
         observations = jnp.concatenate([jnp.squeeze(init_obs)[None, :], observations], axis=0)
         return observations
+
+    @classmethod
+    @eqx.filter_jit
+    def fit(cls, model, k, observations, actions):
+        obs = jnp.squeeze(observations[k])
+        action = jnp.squeeze(actions[k])
+        next_obs = jnp.squeeze(observations[k + 1])
+
+        model_in = jnp.concatenate([obs, action, jnp.ones(1)])[..., None]
+        model = cls.update(model, x=model_in, d=next_obs[..., None])
+        return model
