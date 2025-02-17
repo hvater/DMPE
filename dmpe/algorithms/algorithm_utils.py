@@ -17,10 +17,10 @@ def interact_and_observe(
     env: excenvs.CoreEnvironment,
     k: int,
     action: jax.Array,
-    state: excenvs.ClassicCoreEnvironment.State,
+    state: excenvs.CoreEnvironment.State,
     actions: jax.Array,
     observations: jax.Array,
-) -> Tuple[jax.Array, excenvs.ClassicCoreEnvironment.State, jax.Array, jax.Array]:
+) -> Tuple[jax.Array, excenvs.CoreEnvironment.State, jax.Array, jax.Array]:
     """
     Interact with the environment and store the action and the resulting observation.
 

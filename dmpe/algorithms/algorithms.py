@@ -22,7 +22,7 @@ def excite_and_fit(
     env: excenvs.CoreEnvironment,
     model: eqx.Module,
     obs: jax.Array,
-    state: excenvs.ClassicCoreEnvironment.State,
+    state: excenvs.CoreEnvironment.State,
     proposed_actions: jax.Array,
     exciter: Exciter,
     model_trainer: ModelTrainer,
@@ -42,7 +42,7 @@ def excite_and_fit(
         env (excenvs.CoreEnvironment): The environment object representing the system.
         model (eqx.Module): The model used for prediction.
         obs (jax.Array): The initial observation of the system.
-        state (excenvs.ClassicCoreEnvironment.State): The initial state of the system.
+        state (excenvs.CoreEnvironment.State): The initial state of the system.
         proposed_actions (jax.Array): The proposed actions for exploration.
         exciter (Exciter): The exciter object responsible for choosing actions.
         model_trainer (ModelTrainer): The model trainer object responsible for training the model.
@@ -189,7 +189,12 @@ def excite_with_dmpe(
 
     density_estimate = DensityEstimate(
         p=jnp.zeros([n_grid_points, 1]),
-        x_g=build_grid(dim, low=-1, high=1, points_per_dim=exp_params["alg_params"]["points_per_dim"]),
+        x_g=build_grid(
+            dim,
+            low=-exp_params["alg_params"]["grid_extend"],
+            high=exp_params["alg_params"]["grid_extend"],
+            points_per_dim=exp_params["alg_params"]["points_per_dim"],
+        ),
         bandwidth=jnp.array([exp_params["alg_params"]["bandwidth"]]),
         n_observations=jnp.array([0]),
     )

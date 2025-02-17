@@ -17,7 +17,7 @@ def simulate_ahead(model: NeuralEulerODE, init_obs: jnp.ndarray, actions: jnp.nd
         model: The model to use in the simulation
         init_obs: The initial observation from which to start the simulation
         actions: The actions to apply in each step of the simulation, the length
-            of the first dimension of this array determine the lenght of the
+            of the first dimension of this array determine the length of the
             output.
         tau: The sampling time for the model
 
@@ -44,7 +44,7 @@ def simulate_ahead_with_env(
         init_obs: The initial observation from which to start the simulation
         init_state: The initial state from which to start the simulation
         actions: The actions to apply in each step of the simulation, the length
-            of the first dimension of this array determine the lenght of the
+            of the first dimension of this array determine the length of the
             output.
         env_state_normalizer: Values for state normalization
         action_normalizer: Values for action normalization
