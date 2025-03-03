@@ -17,13 +17,15 @@ def plot_sequence(observations, actions, tau, obs_labels, action_labels, fig=Non
 
     t = jnp.linspace(0, observations.shape[0] - 1, observations.shape[0]) * tau
 
+    colors = list(plt.rcParams["axes.prop_cycle"])[: observations.shape[-1]]
     for observation_idx in range(observations.shape[-1]):
         axs[0].plot(
             t,
             jnp.squeeze(observations[..., observation_idx]),
-            "." if dotted else "-",
+            "--" if dotted else "-",
             markersize=1,
             label=obs_labels[observation_idx],
+            color=colors[observation_idx]["color"],
         )
 
     axs[0].title.set_text("observations, timeseries")
@@ -74,7 +76,11 @@ def plot_model_performance(model, true_observations, actions, tau, obs_labels, a
     """Compare the performance of the model to the ground truth data."""
 
     fig, axs = plot_sequence(
-        observations=true_observations, actions=actions, tau=tau, obs_labels=obs_labels, action_labels=action_labels
+        observations=true_observations,
+        actions=actions,
+        tau=tau,
+        obs_labels=["gt_" + obs_labels[i] for i in range(len(obs_labels))],
+        action_labels=action_labels,
     )
 
     pred_observations = simulate_ahead(model, true_observations[0, :], actions, tau)
@@ -98,7 +104,7 @@ def append_predictions_to_sequence_plot(
     """Appends the future predictions to the given plot."""
 
     t = jnp.linspace(0, pred_observations.shape[0] - 1, pred_observations.shape[0]) * tau
-    t += tau * starting_step  # start where the trajectory left off
+    t += tau * (starting_step - 1)  # start where the trajectory left off
 
     colors = list(mcolors.CSS4_COLORS.values())[: pred_observations.shape[-1]]
     for observation_idx, color in zip(range(pred_observations.shape[-1]), colors):
@@ -161,8 +167,6 @@ def plot_sequence_and_prediction(
         pred_observations, state = simulate_ahead_with_env(
             env=model, init_obs=init_obs, init_state=init_state, actions=proposed_actions
         )
-    pred_observations = pred_observations[1:]
-    proposed_actions = proposed_actions[:-1]
 
     fig, axs = append_predictions_to_sequence_plot(
         fig=fig,
