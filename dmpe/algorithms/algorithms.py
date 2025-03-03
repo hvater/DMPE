@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Callable
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import numpy as np
@@ -9,14 +9,13 @@ import equinox as eqx
 import optax
 
 import exciting_environments as excenvs
-from dmpe.algorithms.algorithm_utils import interact_and_observe, default_dmpe_parameterization
+from dmpe.algorithms.algorithm_utils import consult_exciter, interact_and_observe, default_dmpe_parameterization
 from dmpe.evaluation.plotting_utils import plot_sequence_and_prediction
 from dmpe.excitation import loss_function, Exciter
 from dmpe.models.model_training import ModelTrainer
 from dmpe.utils.density_estimation import (
     DensityEstimate,
     build_grid,
-    update_density_estimate_single_observation,
 )
 from dmpe.utils.metrics import JSDLoss
 
@@ -36,7 +35,8 @@ def excite_and_fit(
     opt_state_model: optax.OptState,
     loader_key: jax.random.PRNGKey,
     expl_key: jax.random.PRNGKey,
-    plot_every: int,
+    callback_every: int,
+    callback: Callable | None = None,
 ) -> Tuple[jax.Array, jax.Array, eqx.Module, DensityEstimate]:
     """
     Main algorithm to apply to a given (unknown) system and generate informative data from that system.
@@ -55,7 +55,7 @@ def excite_and_fit(
         actions (jax.Array): The history of actions.
         opt_state_model (optax.OptState): The optimizer state for the model.
         loader_key (jax.random.PRNGKey): The key used for loading data.
-        plot_every (int): The frequency at which to plot the sequence and prediction.
+        callback_every (int): The frequency at which to run the callback function.
 
     Returns:
         Tuple[jax.Array, jax.Array, eqx.Module, DensityEstimate]: A tuple containing the history of observations,
@@ -64,30 +64,23 @@ def excite_and_fit(
     prediction_losses = []
     data_losses = []
 
+    callback_out = []
+
     for k in tqdm(range(n_time_steps)):
-        if k > exciter.start_optimizing:
-            action, proposed_actions, density_estimate, prediction_loss, expl_key = exciter.choose_action(
-                obs=obs,
-                state=state,
-                model=model,
-                density_estimate=density_estimate,
-                proposed_actions=proposed_actions,
-                expl_key=expl_key,
-            )
-        else:
-            # run the exciter without optimizing actions
-            expl_key, expl_action_key = jax.random.split(expl_key, 2)
-            action, proposed_actions, density_estimate = exciter.process_propositions(
-                obs=obs,
-                density_estimate=density_estimate,
-                proposed_actions=proposed_actions,
-                expl_action_key=expl_action_key,
-            )
-            prediction_loss = 0.0
+        action, next_proposed_actions, next_density_estimate, prediction_loss, next_expl_key = consult_exciter(
+            k=k,
+            exciter=exciter,
+            obs=obs,
+            state=state,
+            model=model,
+            density_estimate=density_estimate,
+            proposed_actions=proposed_actions,
+            expl_key=expl_key,
+        )
 
-        prediction_losses.append(prediction_loss)
+        prediction_losses.append(prediction_loss)  # predicted loss for the last excitation optimization
 
-        obs, state, actions, observations = interact_and_observe(
+        next_obs, next_state, actions, observations = interact_and_observe(
             env=env, k=jnp.array([k]), action=action, state=state, actions=actions, observations=observations
         )
 
@@ -107,33 +100,43 @@ def excite_and_fit(
             if k == 0:
                 print("Model is used statically and not re-fitted or updated otherwise.")
 
+        # evaluate the current excitation metric value for the acquired data
         data_loss = JSDLoss(
-            density_estimate.p / jnp.sum(density_estimate.p),
+            next_density_estimate.p / jnp.sum(next_density_estimate.p),
             exciter.target_distribution / jnp.sum(exciter.target_distribution),
         )
         data_losses.append(data_loss)
 
-        if k % plot_every == 0 and k > 0:
-            print("last input opt loss:", prediction_losses[-1])
-            print("current data loss:", data_loss)
-            fig, axs = plot_sequence_and_prediction(
-                observations=observations[: k + 2, :],
-                actions=actions[: k + 1, :],
-                tau=exciter.tau,
-                obs_labels=env.obs_description,
-                actions_labels=env.action_description,
-                model=model,
-                init_obs=obs,
-                init_state=state,
-                proposed_actions=proposed_actions,
-            )
-            plt.show()
+        # callback
+        if k % callback_every == 0 and k > 0:
+            if callback is not None:
+                callback_out.append(
+                    callback(
+                        jnp.array([k]),
+                        env,
+                        obs,
+                        state,
+                        next_obs,
+                        next_state,
+                        action,
+                        observations,
+                        actions,
+                        model,
+                        next_density_estimate,
+                        next_proposed_actions,
+                        data_losses,
+                        prediction_losses,
+                    )
+                )
 
-            plt.plot(np.log(data_losses))
-            plt.grid(True)
-            plt.show()
+        # k <- k + 1
+        obs = next_obs
+        state = next_state
+        proposed_actions = next_proposed_actions
+        density_estimate = next_density_estimate
+        expl_key = next_expl_key
 
-    return observations, actions, model, density_estimate, prediction_losses, proposed_actions
+    return observations, actions, model, density_estimate, prediction_losses, proposed_actions, callback_out
 
 
 def excite_with_dmpe(
@@ -142,7 +145,8 @@ def excite_with_dmpe(
     proposed_actions: jax.Array,
     loader_key: jax.random.PRNGKey,
     expl_key: jax.random.PRNGKey,
-    plot_every: bool | None = None,
+    callback_every: bool | None = None,
+    callback: Callable | None = None,
 ):
     """
     Excite the system using the Differentiable Model Predictive Excitation (DMPE) algorithm.
@@ -154,7 +158,7 @@ def excite_with_dmpe(
         model_key: The key for initializing the model.
         loader_key: The key used for loading data.
         expl_key: The key used for random action generation.
-        plot_every: The frequency at which to plot the current data sequences.
+        callback_every: The frequency at which to run the callback function.
 
     Returns:
         Tuple[jnp.ndarray, jnp.ndarray, eqx.Module, DensityEstimate]: A tuple containing the history of observations,
@@ -225,7 +229,7 @@ def excite_with_dmpe(
         n_observations=jnp.array([0]),
     )
 
-    observations, actions, model, density_estimate, losses, proposed_actions = excite_and_fit(
+    observations, actions, model, density_estimate, losses, proposed_actions, callback_out = excite_and_fit(
         n_time_steps=exp_params["n_time_steps"],
         env=env,
         model=model,
@@ -240,13 +244,14 @@ def excite_with_dmpe(
         opt_state_model=opt_state_model,
         loader_key=loader_key,
         expl_key=expl_key,
-        plot_every=plot_every if plot_every is not None else exp_params["n_time_steps"] + 1,
+        callback_every=callback_every if callback_every is not None else exp_params["n_time_steps"] + 1,
+        callback=callback,
     )
 
-    return observations, actions, model, density_estimate, losses, proposed_actions
+    return observations, actions, model, density_estimate, losses, proposed_actions, callback_out
 
 
-def default_dmpe(env, seed=0, n_time_steps=5000, featurize=None, model_class=None, plot_every=None):
+def default_dmpe(env, seed=0, n_time_steps=5000, featurize=None, model_class=None, callback_every=None):
     """Runs DMPE with default parameterization. The parameter choices might
     not be optimal for a given system.
 
@@ -264,5 +269,5 @@ def default_dmpe(env, seed=0, n_time_steps=5000, featurize=None, model_class=Non
     return excite_with_dmpe(
         env,
         *default_dmpe_parameterization(env, seed, n_time_steps, featurize, model_class),
-        plot_every,
+        callback_every,
     )

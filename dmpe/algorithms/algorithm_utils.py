@@ -7,9 +7,41 @@ from haiku import PRNGSequence
 
 import exciting_environments as excenvs
 from dmpe.utils.signals import aprbs
-from dmpe.utils.density_estimation import select_bandwidth
+from dmpe.utils.density_estimation import select_bandwidth, DensityEstimate
 from dmpe.models import NeuralEulerODE
-from dmpe.excitation.excitation_utils import soft_penalty
+from dmpe.excitation.excitation_utils import soft_penalty, Exciter
+
+
+def consult_exciter(
+    k: int,
+    exciter: Exciter,
+    obs: jax.Array,
+    state: excenvs.CoreEnvironment.State,
+    model: eqx.Module,
+    density_estimate: DensityEstimate,
+    proposed_actions: jax.Array,
+    expl_key: jax.random.PRNGKey,
+):
+    if k > exciter.start_optimizing:
+        action, next_proposed_actions, next_density_estimate, prediction_loss, next_expl_key = exciter.choose_action(
+            obs=obs,
+            state=state,
+            model=model,
+            density_estimate=density_estimate,
+            proposed_actions=proposed_actions,
+            expl_key=expl_key,
+        )
+    else:
+        # run the exciter without optimizing actions
+        next_expl_key, expl_action_key = jax.random.split(expl_key, 2)
+        action, next_proposed_actions, next_density_estimate = exciter.process_propositions(
+            obs=obs,
+            density_estimate=density_estimate,
+            proposed_actions=proposed_actions,
+            expl_action_key=expl_action_key,
+        )
+        prediction_loss = 0.0
+    return action, next_proposed_actions, next_density_estimate, prediction_loss, next_expl_key
 
 
 @eqx.filter_jit
