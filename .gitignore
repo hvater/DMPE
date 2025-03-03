@@ -161,6 +161,7 @@ cython_debug/
 
 dev/results
 eval/results
+eval/scripts/pmsm/results/
 dev/unmaintained
 
 .vscode/

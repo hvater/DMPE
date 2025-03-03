@@ -110,7 +110,7 @@ class NeuralEulerODECartpole(NeuralEulerODE):
 
 
 class NeuralEulerODEPMSM(NeuralEulerODE):
-    """Pendulum specific model that deals with the periodic properties of the angle information."""
+    """PMSM-specific NODE model that roughly scales the output to fit the normal output range more accurately."""
 
     def step(self, obs, action, tau):
         next_obs = obs + tau * self.func(obs, action) * 1e4

@@ -37,10 +37,10 @@ class ExcitingPMSM(PMSM):
             i_d=-env_properties.physical_normalizations.i_d.max / 2,
             i_q=0.0,
             torque=0.0,
-            omega_el=2 * jnp.pi * 3 * self.initial_rpm / 60,  # 2 * jnp.pi * 3 * 1000 / 60
+            omega_el=2 * jnp.pi * 3 * self.initial_rpm / 60,
         )
         subkey = jnp.nan
-        additions = None  # self.Optional(something=jnp.zeros(self.batch_size))
+        additions = None
         ref = self.PhysicalState(
             u_d_buffer=jnp.nan,
             u_q_buffer=jnp.nan,
