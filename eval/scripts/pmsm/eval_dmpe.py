@@ -3,7 +3,6 @@ import argparse
 import datetime
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import numpy as np
 import jax
@@ -12,8 +11,7 @@ import diffrax
 from haiku import PRNGSequence
 
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
-gpus = jax.devices()
-jax.config.update("jax_default_device", gpus[0])
+
 
 from dmpe.utils.signals import aprbs
 from dmpe.algorithms import excite_with_dmpe
@@ -129,14 +127,14 @@ def main(rpm, model_name, consider_actions):
     exp_params = dict(
         seed=None,
         rpm=float(rpm),
-        n_time_steps=1_000,
+        n_time_steps=5_000,
         alg_params=alg_params,
         model_params=model_params,
         model_class=model_class,
         model_trainer_params=model_trainer_params,
         model_env_wrapper=model_env_wrapper,
     )
-    seeds = list(np.arange(222, 230))
+    seeds = list([222, 444, 777, 899])
 
     for exp_idx, seed in enumerate(seeds):
 
@@ -151,8 +149,13 @@ if __name__ == "__main__":
     parser.add_argument("--rpm", type=float, default=2000, help="RPM of the PMSM.")
     parser.add_argument("--model", type=str, default="NODE", help="Model to use for the DMPE algorithm.")
     parser.add_argument("--consider_actions", action=argparse.BooleanOptionalAction)
+    parser.add_argument("--gpu_id", type=int, default=0, help="GPU id to use.")
 
     args = parser.parse_args()
+
+    gpus = jax.devices()
+    jax.config.update("jax_default_device", gpus[args.gpu_id])
+
     rpm = args.rpm
     model_name = args.model
     consider_actions = args.consider_actions is True
