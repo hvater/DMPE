@@ -181,19 +181,19 @@ def plot_constraints_induced_voltage(env, physical_i_d, physical_i_q, w_el, satu
     Psi = np.sqrt(Psi_d**2 + Psi_q**2)
 
     # Plot results
-    plt.figure()
-    plt.grid(True)
-    plt.xlabel("id")
-    plt.ylabel("iq")
+    fig, ax = plt.subplots()
+    ax.grid(True)
+    ax.set_xlabel("id")
+    ax.set_ylabel("iq")
 
-    plt.scatter(jnp.squeeze(physical_i_d), jnp.squeeze(physical_i_q), s=1)
+    ax.scatter(jnp.squeeze(physical_i_d), jnp.squeeze(physical_i_q), s=1)
 
     umult = 1 / jnp.sqrt(3)  # 2 / 3  # * jnp.sqrt(2)
-    plt.contour(Id, Iq, I, levels=[250], colors="r", linewidths=2)
+    ax.contour(Id, Iq, I, levels=[250], colors="k", linewidths=1.5)
     # plt.contour(Id, Iq, T, linestyles='dashed', colors='k')
-    plt.contour(Id, Iq, U, levels=[udc * umult], colors="b", linewidths=2)
+    ax.contour(Id, Iq, U, levels=[udc * umult], colors="k", linewidths=1.5)
 
-    plt.ylim(-350, 350)
+    ax.set_ylim(-350, 350)
+    ax.set_xlim((-350, 200))
 
-    plt.xlim((-350, 200))
-    plt.show()
+    return fig, ax
