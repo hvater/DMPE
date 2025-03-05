@@ -15,7 +15,7 @@ def get_alg_params(consider_action_distribution: bool, penalty_function: Callabl
 
     alg_params = dict(
         bandwidth=0.08,
-        n_prediction_steps=10,
+        n_prediction_steps=5,
         points_per_dim=21,
         grid_extend=1.05,
         excitation_optimizer=optax.adabelief(1e-2),
@@ -72,7 +72,7 @@ def get_NODE_params(consider_action_distribution, penalty_function):
         consider_action_distribution=consider_action_distribution, penalty_function=penalty_function
     )
 
-    model_params = dict(obs_dim=2, action_dim=2, width_size=128, depth=3, key=None)
+    model_params = dict(obs_dim=2, action_dim=2, width_size=64, depth=3, key=None)
     model_trainer_params = dict(
         start_learning=alg_params["n_prediction_steps"],
         training_batch_size=64,

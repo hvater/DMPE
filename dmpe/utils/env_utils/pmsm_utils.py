@@ -129,7 +129,7 @@ def plot_sequence_with_constraints(env, observations, actions):
     return fig, axs
 
 
-def plot_constraints_induced_voltage(env, physical_i_d, physical_i_q, w_el, saturated=True):
+def plot_constraints_induced_voltage(env, physical_i_d, physical_i_q, w_el, saturated=True, show_torque=False):
     """Plot the constraints onto the currents due to the induced voltage."""
     p = env.env_properties.static_params.p
     r_s = env.env_properties.static_params.r_s
@@ -140,8 +140,8 @@ def plot_constraints_induced_voltage(env, physical_i_d, physical_i_q, w_el, satu
         Psi_q = env.pmsm_lut["Psi_q"][1:-1, 1:-1]
         i_d_vec = np.squeeze(env.pmsm_lut["i_d_vec"])
         i_q_vec = np.squeeze(env.pmsm_lut["i_q_vec"])
-    if not saturated:
 
+    if not saturated:
         # initialize flux matrices and current vectors or something
 
         l_d = env.env_properties.static_params.l_d
@@ -190,7 +190,8 @@ def plot_constraints_induced_voltage(env, physical_i_d, physical_i_q, w_el, satu
 
     umult = 1 / jnp.sqrt(3)  # 2 / 3  # * jnp.sqrt(2)
     ax.contour(Id, Iq, I, levels=[250], colors="k", linewidths=1.5)
-    # plt.contour(Id, Iq, T, linestyles='dashed', colors='k')
+    if show_torque:
+        ax.contour(Id, Iq, T, linestyles="dashed", colors="k")
     ax.contour(Id, Iq, U, levels=[udc * umult], colors="k", linewidths=1.5)
 
     ax.set_ylim(-350, 350)
