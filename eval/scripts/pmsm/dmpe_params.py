@@ -10,6 +10,37 @@ from dmpe.utils.rls import SimulationPMSM_RLS
 from dmpe.utils.density_estimation import build_grid, DensityEstimate
 
 
+def get_target_distribution(
+    points_per_dim: int,
+    bandwidth: float,
+    grid_extend: float,
+    consider_action_distribution: bool,
+    penalty_function: Callable,
+):
+    """Get the target distribution for the DMPE algorithm in the PMSM experiments."""
+
+    dim = 4 if consider_action_distribution else 2
+    x_g = build_grid(dim, low=-grid_extend, high=grid_extend, points_per_dim=points_per_dim)
+
+    if consider_action_distribution:
+        constr_func = lambda x_g: penalty_function(x_g[..., None, :2], x_g[..., None, 2:])
+    else:
+        constr_func = lambda x_g: penalty_function(x_g[..., None, :2], None)
+
+    valid_grid_point = jax.vmap(constr_func, in_axes=0)(x_g) == 0
+    constrained_data_points = x_g[jnp.where(valid_grid_point == True)]
+    constrained_data_points.shape
+
+    target_distribution = DensityEstimate.from_dataset(
+        constrained_data_points[None],
+        x_min=-grid_extend,
+        x_max=grid_extend,
+        points_per_dim=points_per_dim,
+        bandwidth=bandwidth,
+    )
+    return target_distribution.p[0]
+
+
 def get_alg_params(consider_action_distribution: bool, penalty_function: Callable):
     """Get parameters for the DMPE algorithm in the PMSM experiments."""
 
@@ -29,25 +60,13 @@ def get_alg_params(consider_action_distribution: bool, penalty_function: Callabl
         reuse_proposed_actions=True,
     )
 
-    dim = 4 if alg_params["consider_action_distribution"] else 2
-    x_g = build_grid(
-        dim, low=-alg_params["grid_extend"], high=alg_params["grid_extend"], points_per_dim=alg_params["points_per_dim"]
-    )
-
-    if alg_params["consider_action_distribution"]:
-        constr_func = lambda x_g: penalty_function(x_g[..., None, :2], x_g[..., None, 2:])
-    else:
-        constr_func = lambda x_g: penalty_function(x_g[..., None, :2], None)
-    valid_grid_point = jax.vmap(constr_func, in_axes=0)(x_g) == 0
-    constrained_data_points = x_g[jnp.where(valid_grid_point == True)]
-    constrained_data_points.shape
-
-    target_distribution = DensityEstimate.from_dataset(
-        constrained_data_points[None],
+    alg_params["target_distribution"] = get_target_distribution(
         points_per_dim=alg_params["points_per_dim"],
         bandwidth=alg_params["bandwidth"],
+        grid_extend=alg_params["grid_extend"],
+        consider_action_distribution=consider_action_distribution,
+        penalty_function=penalty_function,
     )
-    alg_params["target_distribution"] = target_distribution.p[0]
     return alg_params
 
 
