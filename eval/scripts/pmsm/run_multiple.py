@@ -4,7 +4,7 @@ import eval_dmpe
 import eval_goats
 
 
-rpms = [2000, 3000, 5000, 6000, 7000, 9000]
+rpms = [0, 3000, 5000, 7000, 9000]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run DMPE on the PMSM environment.")
@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     if args.DMPE:
         model_names = ["RLS", "NODE", "PM"]
-        consider_actions = [False, True]
+        consider_actions = [True]
 
         for consider_action in consider_actions:
             for model_name in model_names:

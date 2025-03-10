@@ -127,14 +127,14 @@ def main(rpm, model_name, consider_actions):
     exp_params = dict(
         seed=None,
         rpm=float(rpm),
-        n_time_steps=5_000,
+        n_time_steps=15_000,
         alg_params=alg_params,
         model_params=model_params,
         model_class=model_class,
         model_trainer_params=model_trainer_params,
         model_env_wrapper=model_env_wrapper,
     )
-    seeds = list([222, 444, 777, 899])
+    seeds = list(np.arange(50, 61))
 
     for exp_idx, seed in enumerate(seeds):
 
