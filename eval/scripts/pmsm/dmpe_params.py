@@ -29,7 +29,6 @@ def get_target_distribution(
 
     valid_grid_point = jax.vmap(constr_func, in_axes=0)(x_g) == 0
     constrained_data_points = x_g[jnp.where(valid_grid_point == True)]
-    constrained_data_points.shape
 
     target_distribution = DensityEstimate.from_dataset(
         constrained_data_points[None],

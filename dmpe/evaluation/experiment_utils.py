@@ -18,6 +18,25 @@ def get_experiment_ids(results_path: pathlib.Path):
     return sorted(list(identifiers))
 
 
+def get_organized_experiment_ids(full_results_path):
+    experiment_ids = get_experiment_ids(full_results_path)
+    organized_experiment_ids = {}
+
+    for experiment_id in experiment_ids:
+
+        ca = experiment_id.split("ca_")[-1].split("_")[0] == "True"
+
+        if ca not in organized_experiment_ids.keys():
+            organized_experiment_ids[ca] = {}
+
+        rpm = float(experiment_id.split("rpm_")[-1].split("_")[0])
+        if rpm not in organized_experiment_ids[ca].keys():
+            organized_experiment_ids[ca][rpm] = []
+        organized_experiment_ids[ca][rpm].append(experiment_id)
+
+    return organized_experiment_ids
+
+
 def load_experiment_results(exp_id: str, results_path: pathlib.Path, model_class=None, to_array=True):
     with open(results_path / pathlib.Path(f"params_{exp_id}.json"), "rb") as fp:
         params = json.load(fp)
