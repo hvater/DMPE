@@ -19,12 +19,12 @@ def choose_action(env, penalty_function, proposed_actions, state, choice_key):
     This is a heuristic implementation that uses an oracle to ensure compliance with the bounds, but chooses
     mostly randomly among the actions.
     """
-    test_obs, test_state = jax.vmap(env.step, in_axes=(None, 0, None))(state, proposed_actions, env.env_properties)
+    test_obs, _ = jax.vmap(env.step, in_axes=(None, 0, None))(state, proposed_actions, env.env_properties)
 
     penalty_values = jax.vmap(penalty_function, in_axes=(0, 0))(test_obs, proposed_actions)
 
     def true_fun(key, data_array, penalty_values):
-        """There are not options that keep the system within bounds. Apply the one with the least penalty."""
+        """There are no options that keep the system within bounds. Apply the one with the least penalty."""
         idx_min_penalty = jnp.argmin(penalty_values)
         return data_array[idx_min_penalty]
 
@@ -32,7 +32,7 @@ def choose_action(env, penalty_function, proposed_actions, state, choice_key):
         """There are actions that keep the system within bounds. Choose one randomly."""
         valid_points_bool = penalty_values == 0
         prob_points = valid_points_bool.astype(jnp.float32) / jnp.sum(valid_points_bool)
-        return jax.random.choice(choice_key, proposed_actions, p=prob_points, axis=0)
+        return jax.random.choice(key, data_array, p=prob_points, axis=0)
 
     return jax.lax.cond(
         jnp.all(penalty_values != 0), true_fun, false_fun, *(choice_key, proposed_actions, penalty_values)
