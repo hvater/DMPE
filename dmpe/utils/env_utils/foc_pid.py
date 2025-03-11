@@ -10,7 +10,7 @@ def get_advanced_angle(eps, tau_scale, tau, omega):
 
 
 class ClassicController:
-    def __init__(self, motor, saturated, a=4, decoupling=True, tau=1e-4):
+    def __init__(self, motor, rpm, saturated, a=4, decoupling=True, tau=1e-4):
         """
         Initializes the ClassicController.
 
@@ -40,6 +40,8 @@ class ClassicController:
         self.a: int = a
 
         self.motor = motor
+        self.rpm: float = rpm
+
         if not saturated:
             self.L_dq: float = motor.l_dq
             self.psi_dq: float = motor.psi_dq
@@ -89,7 +91,7 @@ class ClassicController:
 
         self.u_albet_norm = dq2albet(
             u_dq_norm,
-            get_advanced_angle(eps, 0.5, self.tau, (3 * 1500 / 60 * 2 * jnp.pi)),
+            get_advanced_angle(eps, 0.5, self.tau, (3 * self.rpm / 60 * 2 * jnp.pi)),
         )
         u_albet_c = self.u_albet_norm[:, 0] + 1j * self.u_albet_norm[:, 1]
         idx = (jnp.sin(jnp.angle(u_albet_c)[..., jnp.newaxis] - 2 / 3 * jnp.pi * jnp.arange(3)) >= 0).astype(int)
@@ -172,10 +174,10 @@ class ClassicController:
             q = jnp.array([0, -1, 1, 0]).reshape(2, 2)
             if self.saturated:
                 # Calculate the initial control signal for saturated motor
-                u_s_0 = (3 * 1500 / 60 * 2 * jnp.pi) * jnp.einsum("ij,bj->bi", q, psi_dq)
+                u_s_0 = (3 * self.rpm / 60 * 2 * jnp.pi) * jnp.einsum("ij,bj->bi", q, psi_dq)
             else:
                 # Calculate the initial control signal for non-saturated motor
-                u_s_0 = (3 * 1500 / 60 * 2 * jnp.pi) * jnp.einsum("ij,bj->bi", q, i_dq * L_dq + psi_dq)
+                u_s_0 = (3 * self.rpm / 60 * 2 * jnp.pi) * jnp.einsum("ij,bj->bi", q, i_dq * L_dq + psi_dq)
         else:
             u_s_0 = self.u_s_0
 
