@@ -86,7 +86,7 @@ def run_experiment(rpm, seed):
     # experiment finished, save results
     file_name = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 
-    with open(f"./results/heuristics/random_walk/data_rpm_{rpm}__{file_name}.json", "w") as fp:
+    with open(f"./results/heuristics/random_walk/data_rpm_{rpm}_{file_name}.json", "w") as fp:
         json.dump(dict(observations=observations.tolist(), actions=actions.tolist()), fp)
 
     jax.clear_caches()

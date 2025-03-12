@@ -2,6 +2,7 @@ from typing import Callable
 import json
 import pathlib
 import glob
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -38,8 +39,12 @@ def get_organized_experiment_ids(full_results_path):
 
 
 def load_experiment_results(exp_id: str, results_path: pathlib.Path, model_class=None, to_array=True):
-    with open(results_path / pathlib.Path(f"params_{exp_id}.json"), "rb") as fp:
-        params = json.load(fp)
+
+    if os.path.isfile(results_path / pathlib.Path(f"params_{exp_id}.json")):
+        with open(results_path / pathlib.Path(f"params_{exp_id}.json"), "rb") as fp:
+            params = json.load(fp)
+    else:
+        params = None
 
     with open(results_path / pathlib.Path(f"data_{exp_id}.json"), "rb") as fp:
         data = json.load(fp)

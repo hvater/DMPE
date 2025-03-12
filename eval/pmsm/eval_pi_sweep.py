@@ -99,7 +99,7 @@ def setup_references(env, rpm, points_per_dim, penalty_function):
     )
 
     references_norm = filter_valid_points(references_norm)
-    references_norm = jnp.concatenate([references_norm[0, :][None].repeat(1000, axis=0), references_norm], axis=0)
+    # references_norm = jnp.concatenate([references_norm[0, :][None].repeat(1000, axis=0), references_norm], axis=0)
 
     return filter_voltage_constraints(env, rpm, references_norm)
 
@@ -131,7 +131,7 @@ def run_experiment(rpm):
     # experiment finished, save results
     file_name = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 
-    with open(f"./results/heuristics/current_plane_sweep/data_rpm_{rpm}__{file_name}.json", "w") as fp:
+    with open(f"./results/heuristics/current_plane_sweep/data_rpm_{rpm}_{file_name}.json", "w") as fp:
         json.dump(dict(observations=observations.tolist(), actions=actions.tolist()), fp)
 
     jax.clear_caches()
