@@ -19,7 +19,7 @@ def get_experiment_ids(results_path: pathlib.Path):
     return sorted(list(identifiers))
 
 
-def get_organized_experiment_ids(full_results_path):
+def get_organized_experiment_ids(full_results_path, force_consider_actions=False):
     experiment_ids = get_experiment_ids(full_results_path)
     organized_experiment_ids = {}
 
@@ -34,6 +34,14 @@ def get_organized_experiment_ids(full_results_path):
         if rpm not in organized_experiment_ids[ca].keys():
             organized_experiment_ids[ca][rpm] = []
         organized_experiment_ids[ca][rpm].append(experiment_id)
+
+    if force_consider_actions:
+        if True not in organized_experiment_ids.keys():
+            print("No experiments with consider_actions=True. Regard experiments to consider actions.")
+            organized_experiment_ids[True] = organized_experiment_ids[False]
+            del organized_experiment_ids[False]
+        else:
+            del organized_experiment_ids[False]
 
     return organized_experiment_ids
 
