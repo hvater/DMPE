@@ -110,8 +110,7 @@ def get_PM_params(consider_action_distribution, penalty_function):
         consider_action_distribution=consider_action_distribution, penalty_function=penalty_function
     )
 
-    # alg_params["n_prediction_steps"] = 3
-    # alg_params["n_opt_steps"] = 100
+    alg_params["n_opt_steps"] = 100
 
     model_params = None
     model_trainer_params = None

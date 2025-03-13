@@ -77,7 +77,7 @@ def run_experiment(exp_idx, env, exp_params):
 
 def main(rpm, consider_actions):
 
-    assert 1000 <= rpm <= 11000, "RPM must be between 1000 and 11000."
+    assert 0 <= rpm <= 11000, "RPM must be between 0 and 11000."
 
     env, penalty_function = setup_env(rpm)
 
