@@ -37,7 +37,7 @@ def get_target_distribution(
         points_per_dim=points_per_dim,
         bandwidth=bandwidth,
     )
-    return target_distribution.p[0]
+    return target_distribution.p[0] / jnp.sum(target_distribution.p[0])
 
 
 def get_alg_params(consider_action_distribution: bool, penalty_function: Callable):
