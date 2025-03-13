@@ -38,6 +38,22 @@ def run_pi_experiment(env, pi, references_norm, init_obs, init_state, init_pi_st
     return observations, actions
 
 
+def subsample_references(references, target_N):
+    M = references.shape[0]
+
+    x_old = jnp.linspace(0, M - 1, M)
+    x_new = jnp.linspace(0, M - 1, target_N)
+
+    def linear_interp(x, xp, fp):
+        idx = jnp.searchsorted(xp, x) - 1
+        idx = jnp.clip(idx, 0, len(fp) - 2)
+        x0, x1 = xp[idx], xp[idx + 1]
+        y0, y1 = fp[idx], fp[idx + 1]
+        return y0 + (y1 - y0) * (x - x0)[:, None] / (x1 - x0)[:, None]
+
+    return linear_interp(x_new, x_old, references)
+
+
 def induced_voltage_constr(x_g, env, w):
     """Compute voltage constraint violations."""
     r_s = env.env_properties.static_params.r_s
@@ -70,7 +86,7 @@ def filter_voltage_constraints(env, rpm, references):
     return filtered_references
 
 
-def setup_references(env, rpm, points_per_dim, penalty_function):
+def setup_references(env, rpm, points_per_dim, penalty_function, n_timesteps=15_000):
     """Setup a reference trajectory to follow with the PI controller."""
     references = build_grid(2, low=-0.95, high=0.95, points_per_dim=points_per_dim)
     references = jnp.flip(references, axis=1)
@@ -99,9 +115,9 @@ def setup_references(env, rpm, points_per_dim, penalty_function):
     )
 
     references_norm = filter_valid_points(references_norm)
-    # references_norm = jnp.concatenate([references_norm[0, :][None].repeat(1000, axis=0), references_norm], axis=0)
-
-    return filter_voltage_constraints(env, rpm, references_norm)
+    references_norm = filter_voltage_constraints(env, rpm, references_norm)
+    references_norm = subsample_references(references_norm, n_timesteps)
+    return references_norm
 
 
 def run_experiment(rpm):
