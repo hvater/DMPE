@@ -6,7 +6,7 @@ import optax
 
 
 def get_alg_params(consider_action_distribution: bool, penalty_function: Callable):
-    """Get parameters for the DMPE algorithm in the PMSM experiments."""
+    """Get parameters for the iGOATS algorithm in the PMSM experiments."""
     h = 4
     a = 4
 
@@ -17,13 +17,13 @@ def get_alg_params(consider_action_distribution: bool, penalty_function: Callabl
         bounds_amplitude=(-1, 1),
         bounds_duration=(1, 50),
         population_size=50,
-        n_generations=50,
+        n_generations=25,
         featurize=lambda x: x,
         rng=None,
-        compress_data=False,
-        compression_target_N=None,
-        compression_feat_dim=None,
-        compression_dist_th=None,
+        compress_data=True,
+        compression_target_N=500,
+        compression_feat_dim=0,
+        compression_dist_th=0.1,
         penalty_function=penalty_function,
     )
 
