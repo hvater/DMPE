@@ -67,12 +67,12 @@ def run_experiment(exp_idx, env, exp_params):
 
     # save parameters
     file_name = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-    with open(f"./results/dmpe/igoats/params_rpm_{rpm}_ca_{consider_actions}_{file_name}.json", "w") as fp:
+    with open(f"./results/igoats/params_rpm_{rpm}_ca_{consider_actions}_{file_name}.json", "w") as fp:
         safe_json_dump(exp_params, fp)
 
     # save observations + actions
-    with open(f"./results/dmpe/igoats/data_rpm_{rpm}_ca_{consider_actions}_{file_name}.json", "w") as fp:
-        json.dump(dict(observations=observations.tolist(), actions=actions.tolist()), fp)
+    with open(f"./results/igoats/data_rpm_{rpm}_ca_{consider_actions}_{file_name}.json", "w") as fp:
+        json.dump(dict(observations=observations, actions=actions), fp)
 
 
 def main(rpm, consider_actions):
